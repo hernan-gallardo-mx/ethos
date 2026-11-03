@@ -1,0 +1,69 @@
+name: Flutter CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Analyze, test, and check coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+          cache-key: flutter-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests with coverage
+        run: flutter test --coverage
+
+      - name: Enforce line coverage threshold
+        env:
+          COVERAGE_THRESHOLD: "79"
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          report = Path("coverage/lcov.info")
+          if not report.is_file():
+              raise SystemExit("Coverage report not found: coverage/lcov.info")
+
+          lines_found = 0
+          lines_hit = 0
+          for line in report.read_text(encoding="utf-8").splitlines():
+              if line.startswith("LF:"):
+                  lines_found += int(line[3:])
+              elif line.startswith("LH:"):
+                  lines_hit += int(line[3:])
+
+          if lines_found == 0:
+              raise SystemExit("Coverage report contains no executable lines")
+
+          coverage = lines_hit * 100 / lines_found
+          threshold = float(os.environ["COVERAGE_THRESHOLD"])
+          print(f"Line coverage: {coverage:.2f}% (minimum: {threshold:.2f}%)")
+          if coverage < threshold:
+              raise SystemExit("Line coverage is below the required threshold")
+          PY
