@@ -3,6 +3,7 @@ import 'package:ethos/models/routine.dart';
 import 'package:ethos/screens/dashboard_screen.dart';
 import 'package:ethos/screens/routine_editor_screen.dart';
 import 'package:ethos/services/reminder_service.dart';
+import 'package:ethos/widgets/socrates_logo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -35,6 +36,21 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets('Socrates logo renders in the app theme', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(body: SocratesLogo()),
+    ));
+
+    expect(find.byType(SocratesLogo), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(SocratesLogo),
+        matching: find.byType(CustomPaint),
+      ),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('editor validates, creates, and saves a weekly routine',
       (tester) async {

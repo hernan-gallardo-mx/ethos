@@ -37,13 +37,13 @@ class _EthosAppState extends State<EthosApp> {
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF245B53);
+    const seed = Color(0xFF173B75);
     return MaterialApp(
       title: 'Ethos',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system,
       theme: _theme(Brightness.light, seed),
-      darkTheme: _theme(Brightness.dark, const Color(0xFF8DD3B5)),
+      darkTheme: _theme(Brightness.dark, seed),
       home: DashboardScreen(store: _store),
     );
   }
@@ -53,8 +53,8 @@ class _EthosAppState extends State<EthosApp> {
       seedColor: seed,
       brightness: brightness,
       surface: brightness == Brightness.light
-          ? const Color(0xFFF7F8F5)
-          : const Color(0xFF151B19),
+          ? const Color(0xFFF5F7FC)
+          : const Color(0xFF101827),
     );
     return ThemeData(
       useMaterial3: true,
@@ -67,7 +67,7 @@ class _EthosAppState extends State<EthosApp> {
       cardTheme: CardThemeData(
         color: brightness == Brightness.light
             ? Colors.white
-            : const Color(0xFF202825),
+            : const Color(0xFF18243A),
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

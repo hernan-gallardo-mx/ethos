@@ -6,6 +6,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../data/routine_store.dart';
 import '../models/routine.dart';
 import '../services/reminder_service.dart';
+import '../widgets/socrates_logo.dart';
 import 'routine_editor_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -57,8 +58,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             titleSpacing: 22,
             title: Row(
               children: [
-                Icon(Icons.spa_rounded,
-                    color: Theme.of(context).colorScheme.primary),
+                const SocratesLogo(),
                 const SizedBox(width: 8),
                 Text('ethos',
                     style: Theme.of(context)
