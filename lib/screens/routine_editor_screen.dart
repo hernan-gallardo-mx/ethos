@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../data/routine_store.dart';
 import '../models/routine.dart';
@@ -351,8 +352,26 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
       remindersEnabled: _remindersEnabled,
     );
     await widget.store.saveRoutine(routine);
-    await widget._reminderService.sync(widget.store.routines);
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).pop();
+    try {
+      await widget._reminderService.sync(widget.store.routines);
+    } on PlatformException catch (error) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+          'Routine saved, but reminders could not be updated: '
+          '${error.message ?? error.code}',
+        ),
+      ));
+    } on MissingPluginException catch (error) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+          'Routine saved, but reminders could not be updated: ${error.message}',
+        ),
+      ));
+    }
   }
 
   String _timePeriod(int minutes) {

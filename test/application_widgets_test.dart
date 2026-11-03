@@ -15,6 +15,7 @@ import 'test_support.dart';
 class FakeReminderService implements RoutineReminderSync {
   bool permissionGranted = true;
   int permissionRequests = 0;
+  Object? syncError;
   final syncCalls = <List<Routine>>[];
 
   @override
@@ -26,6 +27,7 @@ class FakeReminderService implements RoutineReminderSync {
   @override
   Future<void> sync(List<Routine> routines) async {
     syncCalls.add(List.of(routines));
+    if (syncError case final error?) throw error;
   }
 }
 
@@ -171,6 +173,51 @@ void main() {
     expect(saved.frequency, RoutineFrequency.weekly);
     expect(saved.weekdays, {DateTime.now().weekday, DateTime.monday});
     expect(reminders.syncCalls, hasLength(1));
+    store.dispose();
+  });
+
+  testWidgets('saving returns to dashboard even if reminder sync fails',
+      (tester) async {
+    final store = RoutineStore(accountSyncService: LocalOnlyAccountSync());
+    final reminders = FakeReminderService()
+      ..syncError = PlatformException(code: 'notifications-unavailable');
+    await store.load();
+    await tester.pumpWidget(MaterialApp(
+      home: DashboardScreen(store: store, reminderService: reminders),
+    ));
+
+    await tester.tap(find.byTooltip('Add a routine'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'New habit');
+    tester.testTextInput.hide();
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Create routine'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Create routine'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DashboardScreen), findsOneWidget);
+    expect(
+        store.routines.any((routine) => routine.title == 'New habit'), isTrue);
+    expect(
+      occurrencesForDate(store.routines, DateTime.now())
+          .any((item) => item.routine.title == 'New habit'),
+      isTrue,
+    );
+    expect(find.text('0/3'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('New habit'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('New habit'), findsAtLeastNWidgets(1));
+    expect(
+      find.textContaining('Routine saved, but reminders could not be updated'),
+      findsOneWidget,
+    );
     store.dispose();
   });
 
