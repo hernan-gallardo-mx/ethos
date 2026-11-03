@@ -15,6 +15,7 @@ import 'test_support.dart';
 class FakeReminderService implements RoutineReminderSync {
   bool permissionGranted = true;
   int permissionRequests = 0;
+  Object? syncError;
   final syncCalls = <List<Routine>>[];
 
   @override
@@ -26,6 +27,7 @@ class FakeReminderService implements RoutineReminderSync {
   @override
   Future<void> sync(List<Routine> routines) async {
     syncCalls.add(List.of(routines));
+    if (syncError case final error?) throw error;
   }
 }
 
@@ -171,6 +173,137 @@ void main() {
     expect(saved.frequency, RoutineFrequency.weekly);
     expect(saved.weekdays, {DateTime.now().weekday, DateTime.monday});
     expect(reminders.syncCalls, hasLength(1));
+    store.dispose();
+  });
+
+  testWidgets('editor manages time entries and custom schedule days',
+      (tester) async {
+    const routine = Routine(
+      id: 'time-editor',
+      title: 'Time editor',
+      frequency: RoutineFrequency.daily,
+      times: [540, 600],
+      weekdays: {DateTime.monday},
+      monthDay: 2,
+      remindersEnabled: true,
+    );
+    final store = RoutineStore(accountSyncService: LocalOnlyAccountSync());
+    final reminders = FakeReminderService();
+    await store.load();
+    await store.saveRoutine(routine);
+    await tester.pumpWidget(MaterialApp(
+      home: RoutineEditorScreen(
+        store: store,
+        routine: routine,
+        reminderService: reminders,
+      ),
+    ));
+
+    await tester.tap(find.text('Monthly'));
+    await tester.pumpAndSettle();
+    final dayLabel = find.text('of each month');
+    final dayRow =
+        find.ancestor(of: dayLabel, matching: find.byType(Row)).first;
+    await tester.tap(find.descendant(
+      of: dayRow,
+      matching: find.byIcon(Icons.remove_rounded),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('1'), findsOneWidget);
+
+    await tester.tap(find.text('Custom'));
+    await tester.pumpAndSettle();
+    expect(find.text('DAYS OF THE WEEK'), findsOneWidget);
+
+    Future<void> confirmTimePicker() async {
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.ensureVisible(find.text('Add time'));
+    await tester.tap(find.text('Add time'));
+    await confirmTimePicker();
+    expect(find.byTooltip('Choose time'), findsNWidgets(3));
+
+    await tester.ensureVisible(find.text('Add time'));
+    await tester.tap(find.text('Add time'));
+    await confirmTimePicker();
+    expect(find.byTooltip('Choose time'), findsNWidgets(3));
+
+    final firstTimePicker = find.byTooltip('Choose time').first;
+    await tester.ensureVisible(firstTimePicker);
+    await tester.tap(firstTimePicker);
+    await confirmTimePicker();
+
+    await tester.ensureVisible(find.text('Remind me'));
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+    expect(reminders.permissionRequests, 0);
+
+    store.dispose();
+  });
+
+  testWidgets('saving returns to dashboard even if reminder sync fails',
+      (tester) async {
+    final store = RoutineStore(accountSyncService: LocalOnlyAccountSync());
+    final reminders = FakeReminderService()
+      ..syncError = PlatformException(code: 'notifications-unavailable');
+    await store.load();
+    await tester.pumpWidget(MaterialApp(
+      home: DashboardScreen(store: store, reminderService: reminders),
+    ));
+
+    Future<void> createRoutine(String title) async {
+      await tester.tap(find.byTooltip('Add a routine'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, title);
+      tester.testTextInput.hide();
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Create routine'),
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Create routine'));
+      await tester.pumpAndSettle();
+    }
+
+    await createRoutine('New habit');
+
+    expect(find.byType(DashboardScreen), findsOneWidget);
+    expect(
+        store.routines.any((routine) => routine.title == 'New habit'), isTrue);
+    expect(
+      occurrencesForDate(store.routines, DateTime.now())
+          .any((item) => item.routine.title == 'New habit'),
+      isTrue,
+    );
+    expect(find.text('0/3'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('New habit'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('New habit'), findsAtLeastNWidgets(1));
+    expect(
+      find.textContaining('Routine saved, but reminders could not be updated'),
+      findsOneWidget,
+    );
+    ScaffoldMessenger.of(tester.element(find.byType(DashboardScreen)))
+        .clearSnackBars();
+
+    reminders.syncError = MissingPluginException('notification plugin absent');
+    await createRoutine('Another habit');
+    expect(find.byType(DashboardScreen), findsOneWidget);
+    expect(
+      store.routines.any((routine) => routine.title == 'Another habit'),
+      isTrue,
+    );
+    expect(
+      find.textContaining('notification plugin absent'),
+      findsOneWidget,
+    );
     store.dispose();
   });
 
