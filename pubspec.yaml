@@ -8,6 +8,7 @@ environment:
   flutter: '>=3.27.0'
 
 dependencies:
+  calendar_bridge: ^1.1.0
   cloud_firestore: ^7.1.0
   firebase_auth: ^7.0.1
   firebase_core: ^5.1.0

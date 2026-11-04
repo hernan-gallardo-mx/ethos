@@ -2,9 +2,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:calendar_bridge/calendar_bridge.dart';
 
 import '../data/routine_store.dart';
 import '../models/routine.dart';
+import '../services/calendar_export_service.dart';
 import '../services/reminder_service.dart';
 import '../widgets/socrates_logo.dart';
 import 'routine_editor_screen.dart';
@@ -13,14 +15,18 @@ class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     required this.store,
     this.reminderService,
+    this.calendarExportService,
     super.key,
   });
 
   final RoutineStore store;
   final RoutineReminderSync? reminderService;
+  final RoutineCalendarSync? calendarExportService;
 
   RoutineReminderSync get _reminderService =>
       reminderService ?? ReminderService.instance;
+  RoutineCalendarSync get _calendarExportService =>
+      calendarExportService ?? CalendarExportService.instance;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -715,6 +721,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               } else if (value == 'delete') {
                 await widget.store.deleteRoutine(routine.id);
                 await widget._reminderService.sync(widget.store.routines);
+                try {
+                  await widget._calendarExportService.removeRoutine(routine.id);
+                } on CalendarBridgeException catch (error) {
+                  _showCalendarError(error.message);
+                } on PlatformException catch (error) {
+                  _showCalendarError(error.message ?? error.code);
+                } on MissingPluginException catch (error) {
+                  _showCalendarError(
+                    error.message ?? 'Calendar access is unavailable.',
+                  );
+                }
               }
             },
             itemBuilder: (context) => const [
@@ -791,6 +808,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         store: widget.store,
         routine: routine,
         reminderService: widget.reminderService,
+        calendarExportService: widget.calendarExportService,
       ),
     ));
   }
@@ -865,5 +883,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _weekdayNames(Set<int> days) {
     const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return (days.toList()..sort()).map((day) => names[day - 1]).join(', ');
+  }
+
+  void _showCalendarError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Calendar event could not be removed: $message')),
+    );
   }
 }
