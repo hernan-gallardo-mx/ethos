@@ -13,6 +13,7 @@ class Routine {
     this.monthDay = 1,
     this.reduceOnRoutineId,
     this.remindersEnabled = false,
+    this.exportToCalendar = false,
   });
 
   final String id;
@@ -24,6 +25,7 @@ class Routine {
   final int monthDay;
   final String? reduceOnRoutineId;
   final bool remindersEnabled;
+  final bool exportToCalendar;
 
   bool isScheduledOn(DateTime date) {
     switch (frequency) {
@@ -48,6 +50,7 @@ class Routine {
     String? reduceOnRoutineId,
     bool clearReduceOnRoutineId = false,
     bool? remindersEnabled,
+    bool? exportToCalendar,
   }) {
     return Routine(
       id: id ?? this.id,
@@ -61,6 +64,7 @@ class Routine {
           ? null
           : reduceOnRoutineId ?? this.reduceOnRoutineId,
       remindersEnabled: remindersEnabled ?? this.remindersEnabled,
+      exportToCalendar: exportToCalendar ?? this.exportToCalendar,
     );
   }
 
@@ -74,6 +78,7 @@ class Routine {
         'monthDay': monthDay,
         'reduceOnRoutineId': reduceOnRoutineId,
         'remindersEnabled': remindersEnabled,
+        'exportToCalendar': exportToCalendar,
       };
 
   factory Routine.fromJson(Map<String, Object?> json) {
@@ -95,6 +100,7 @@ class Routine {
       monthDay: json['monthDay'] as int? ?? 1,
       reduceOnRoutineId: json['reduceOnRoutineId'] as String?,
       remindersEnabled: json['remindersEnabled'] as bool? ?? false,
+      exportToCalendar: json['exportToCalendar'] as bool? ?? false,
     );
   }
 }
@@ -133,7 +139,8 @@ List<RoutineOccurrence> occurrencesForDate(
         ? null
         : byId[routine.reduceOnRoutineId];
     // On overlap days, keep only the earliest slot of the linked routine.
-    final reduceToday = linkedRoutine != null && linkedRoutine.isScheduledOn(date);
+    final reduceToday =
+        linkedRoutine != null && linkedRoutine.isScheduledOn(date);
     final times = routine.times.toList()..sort();
     final visibleTimes = reduceToday ? times.take(1) : times;
 

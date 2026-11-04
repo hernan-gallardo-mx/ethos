@@ -1,8 +1,12 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import 'data/routine_store.dart';
 import 'models/routine.dart';
 import 'screens/dashboard_screen.dart';
+import 'services/calendar_export_service.dart';
 import 'services/reminder_service.dart';
 
 void main() {
@@ -19,10 +23,14 @@ class EthosApp extends StatefulWidget {
 
 class _EthosAppState extends State<EthosApp> {
   final RoutineStore _store = RoutineStore();
+  final CalendarExportService _calendarExportService =
+      CalendarExportService.instance;
+  String? _lastCalendarRoutineSnapshot;
 
   @override
   void initState() {
     super.initState();
+    _store.addListener(_syncCalendarExports);
     _store.load().then((_) async {
       await _store.restoreAccount();
       await ReminderService.instance.sync(_store.routines);
@@ -31,8 +39,29 @@ class _EthosAppState extends State<EthosApp> {
 
   @override
   void dispose() {
+    _store.removeListener(_syncCalendarExports);
     _store.dispose();
     super.dispose();
+  }
+
+  void _syncCalendarExports() {
+    if (!_store.isReady) return;
+    final snapshot = jsonEncode(
+      _store.routines.map((routine) => routine.toJson()).toList(),
+    );
+    if (snapshot == _lastCalendarRoutineSnapshot) return;
+    _lastCalendarRoutineSnapshot = snapshot;
+    unawaited(_calendarExportService.syncAll(_store.routines).catchError(
+      (Object error, StackTrace stackTrace) {
+        _lastCalendarRoutineSnapshot = null;
+        FlutterError.reportError(FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'calendar export',
+          context: ErrorDescription('while syncing routine calendar events'),
+        ));
+      },
+    ));
   }
 
   @override
@@ -44,7 +73,10 @@ class _EthosAppState extends State<EthosApp> {
       themeMode: ThemeMode.system,
       theme: _theme(Brightness.light, seed),
       darkTheme: _theme(Brightness.dark, seed),
-      home: DashboardScreen(store: _store),
+      home: DashboardScreen(
+        store: _store,
+        calendarExportService: _calendarExportService,
+      ),
     );
   }
 

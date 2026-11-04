@@ -2,6 +2,7 @@ import 'package:ethos/data/routine_store.dart';
 import 'package:ethos/models/routine.dart';
 import 'package:ethos/screens/dashboard_screen.dart';
 import 'package:ethos/screens/routine_editor_screen.dart';
+import 'package:ethos/services/calendar_export_service.dart';
 import 'package:ethos/services/reminder_service.dart';
 import 'package:ethos/widgets/socrates_logo.dart';
 import 'package:flutter/material.dart';
@@ -32,6 +33,42 @@ class FakeReminderService implements RoutineReminderSync {
   }
 }
 
+class FakeCalendarExportService implements RoutineCalendarSync {
+  bool permissionGranted = true;
+  int permissionRequests = 0;
+  String? selectedId;
+  final exportedRoutines = <Routine>[];
+
+  @override
+  Future<List<DeviceCalendar>> calendars({
+    bool requestPermission = false,
+  }) async {
+    if (requestPermission) permissionRequests++;
+    return permissionGranted
+        ? const [DeviceCalendar(id: 'personal', name: 'Personal')]
+        : const [];
+  }
+
+  @override
+  Future<String?> selectedCalendarId() async => selectedId;
+
+  @override
+  Future<void> selectCalendar(String? calendarId) async {
+    selectedId = calendarId;
+  }
+
+  @override
+  Future<void> syncRoutine(Routine routine) async {
+    exportedRoutines.add(routine);
+  }
+
+  @override
+  Future<void> syncAll(List<Routine> routines) async {}
+
+  @override
+  Future<void> removeRoutine(String routineId) async {}
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -50,6 +87,52 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('calendar export requests access and saves the routine choice',
+      (tester) async {
+    final store = RoutineStore(accountSyncService: LocalOnlyAccountSync());
+    final reminders = FakeReminderService();
+    final calendars = FakeCalendarExportService()..permissionGranted = false;
+    await store.load();
+    await tester.pumpWidget(MaterialApp(
+      home: RoutineEditorScreen(
+        store: store,
+        reminderService: reminders,
+        calendarExportService: calendars,
+      ),
+    ));
+
+    await tester.enterText(find.byType(TextField).first, 'Exported habit');
+    tester.testTextInput.hide();
+    await tester.scrollUntilVisible(
+      find.text('Export to calendar'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    final exportSwitch = find.byKey(const ValueKey('calendar-export-switch'));
+    await tester.ensureVisible(exportSwitch);
+    await tester.tap(exportSwitch);
+    await tester.pumpAndSettle();
+    expect(calendars.permissionRequests, 1);
+    expect(find.textContaining('calendar access was denied'), findsOneWidget);
+
+    calendars.permissionGranted = true;
+    await tester.tap(exportSwitch);
+    await tester.pumpAndSettle();
+    expect(find.text('Personal'), findsOneWidget);
+    expect(calendars.selectedId, 'personal');
+
+    await tester.tap(find.byTooltip('Save routine'));
+    await tester.pumpAndSettle();
+    expect(
+      store.routines
+          .singleWhere((routine) => routine.title == 'Exported habit')
+          .exportToCalendar,
+      isTrue,
+    );
+    expect(calendars.exportedRoutines.single.exportToCalendar, isTrue);
+    store.dispose();
   });
 
   testWidgets('editor validates, creates, and saves a weekly routine',
@@ -101,6 +184,7 @@ void main() {
     await tester.ensureVisible(find.text('Remind me'));
     await tester.tap(find.byType(SwitchListTile));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Create routine'));
     await tester.tap(find.text('Create routine'));
     await tester.pumpAndSettle();
 
@@ -180,7 +264,7 @@ void main() {
       400,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.text('Save changes'));
+    await tester.tap(find.byTooltip('Save routine'));
     await tester.pumpAndSettle();
 
     final saved = store.routines.singleWhere((item) => item.id == 'existing');
@@ -281,7 +365,7 @@ void main() {
         400,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Create routine'));
+      await tester.tap(find.byTooltip('Save routine'));
       await tester.pumpAndSettle();
     }
 

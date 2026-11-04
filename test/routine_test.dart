@@ -74,6 +74,7 @@ void main() {
         monthDay: 15,
         reduceOnRoutineId: 'other',
         remindersEnabled: true,
+        exportToCalendar: true,
       );
       expect(updated.title, 'New title');
       expect(updated.note, 'New note');
@@ -83,6 +84,7 @@ void main() {
       expect(updated.monthDay, 15);
       expect(updated.reduceOnRoutineId, 'other');
       expect(updated.remindersEnabled, isTrue);
+      expect(updated.exportToCalendar, isTrue);
       expect(
         minoxidil.copyWith(reduceOnRoutineId: 'roller').reduceOnRoutineId,
         'roller',
@@ -103,6 +105,7 @@ void main() {
         monthDay: 15,
         reduceOnRoutineId: 'linked',
         remindersEnabled: true,
+        exportToCalendar: true,
       );
       final decoded = Routine.fromJson(routine.toJson());
       expect(decoded.toJson(), routine.toJson());
@@ -122,6 +125,7 @@ void main() {
           'monthDay': 1,
           'reduceOnRoutineId': null,
           'remindersEnabled': false,
+          'exportToCalendar': false,
         },
       );
     });

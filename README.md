@@ -70,7 +70,28 @@ The first launch includes an editable example: minoxidil morning and evening, pl
 	   coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 	   ```
 
-6. Start an emulator or connect a device, then run:
+6. Configure calendar export permissions in the generated native projects:
+   - In `android/app/src/main/AndroidManifest.xml`, add under `<manifest>`:
+
+	```xml
+	<uses-permission android:name="android.permission.READ_CALENDAR" />
+	<uses-permission android:name="android.permission.WRITE_CALENDAR" />
+	```
+
+   - In `ios/Runner/Info.plist`, add the calendar usage descriptions. The full-access and write-only keys are used on recent iOS versions; the general key supports older versions:
+
+	```xml
+	<key>NSCalendarsUsageDescription</key>
+	<string>Ethos uses your calendar to export routines you choose.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Ethos uses your calendar to add, update, and remove exported routines.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>Ethos uses your calendar to add routines you choose to export.</string>
+	```
+
+   Calendar access is requested only when calendar export is enabled for a routine.
+
+7. Start an emulator or connect a device, then run:
 
 	```sh
 	flutter devices
@@ -95,5 +116,7 @@ fails the build if line coverage drops below 79%.
 - Firestore sync and Google sign-in are available on Android and iOS once Firebase is configured. Without an account, the app continues to work with local-only storage.
 - Each user's Firestore data is stored in separate routine and completion documents, rather than one growing document.
 - Reminders are local notifications. Enable them per routine and allow notifications when prompted. Android uses inexact scheduling so the app does not require exact-alarm access.
+- Calendar export is optional and one-way: each routine can be exported as a recurring event series to a writable device calendar. Ethos updates and removes only events it created. The export choice syncs with the routine through Firestore; the selected calendar and event IDs stay on that device and are never uploaded.
+- Calendar series follow the routine's configured days and times. The app's overlap adjustment affects the in-app schedule, not calendar events.
 - Weekly and custom routines use selected weekdays. Monthly routines use a day of the month; months without that day will not trigger the routine.
 - The overlap adjustment reduces the selected routine to its earliest scheduled time on days when the linked routine is scheduled. It does not mark the hidden occurrence as completed.
